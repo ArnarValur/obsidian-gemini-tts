@@ -1,0 +1,6 @@
+/* Settings styles */
+.gemini-tts-settings textarea {
+    min-height: 100px;
+    width: 100%;
+    resize: vertical;
+}
