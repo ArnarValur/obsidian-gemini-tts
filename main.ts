@@ -1,4 +1,4 @@
-import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting, ButtonComponent } from 'obsidian';
+import { App, Editor, MarkdownView, Notice, Plugin, PluginSettingTab, Setting } from 'obsidian';
 
 // --- Settings Interface ---
 interface GeminiTTSSettings {
@@ -151,7 +151,7 @@ export default class GeminiTTSPlugin extends Plugin {
 		const apiKey = this.settings.apiKey;
 		if (!apiKey) throw new Error("API Key is missing in settings.");
 
-		const url = `https://generativelanguage.googleapis.com/v1beta/models/${this.settings.modelName}:generateContent?key=${apiKey}`;
+		const url = `https://generativelanguage.googleapis.com/v1beta/models/${this.settings.modelName}:generateContent`;
 
 		const payload = {
 			contents: [{
@@ -179,7 +179,8 @@ export default class GeminiTTSPlugin extends Plugin {
 		const response = await fetch(url, {
 			method: 'POST',
 			headers: {
-				'Content-Type': 'application/json'
+				'Content-Type': 'application/json',
+				'x-goog-api-key': apiKey
 			},
 			body: JSON.stringify(payload)
 		});
@@ -203,12 +204,9 @@ export default class GeminiTTSPlugin extends Plugin {
 		const inlineData = parts[0].inlineData;
 		if (inlineData && inlineData.mimeType.startsWith("audio")) {
 			const base64 = inlineData.data;
+			// Efficiently convert base64 to ArrayBuffer using atob and Uint8Array.from
 			const binaryString = window.atob(base64);
-			const len = binaryString.length;
-			const bytes = new Uint8Array(len);
-			for (let i = 0; i < len; i++) {
-				bytes[i] = binaryString.charCodeAt(i);
-			}
+			const bytes = Uint8Array.from(binaryString, char => char.charCodeAt(0));
 			return bytes.buffer;
 		}
 		
