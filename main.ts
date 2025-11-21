@@ -194,6 +194,16 @@ export default class GeminiTTSPlugin extends Plugin {
 			return;
 		}
 
+		let audioUrl: string | null = null;
+
+		const cleanupAudio = () => {
+			if (audioUrl) {
+				URL.revokeObjectURL(audioUrl);
+				audioUrl = null;
+			}
+			this.isPlaying = false;
+		};
+
 		try {
 			// Update status bar
 			this.statusBarItem.setText('Gemini TTS: Generating...');
@@ -204,7 +214,7 @@ export default class GeminiTTSPlugin extends Plugin {
 
 			// Convert ArrayBuffer to Blob and create URL
 			const audioBlob = new Blob([audioBuffer], { type: 'audio/mpeg' });
-			const audioUrl = URL.createObjectURL(audioBlob);
+			audioUrl = URL.createObjectURL(audioBlob);
 
 			// Create and play audio
 			this.currentAudio = new Audio(audioUrl);
@@ -212,15 +222,13 @@ export default class GeminiTTSPlugin extends Plugin {
 
 			this.currentAudio.addEventListener('ended', () => {
 				this.statusBarItem.setText('Gemini TTS: Stopped');
-				this.isPlaying = false;
-				URL.revokeObjectURL(audioUrl);
+				cleanupAudio();
 			});
 
 			this.currentAudio.addEventListener('error', (e) => {
 				new Notice('Error playing audio');
 				this.statusBarItem.setText('Gemini TTS: Error');
-				this.isPlaying = false;
-				URL.revokeObjectURL(audioUrl);
+				cleanupAudio();
 			});
 
 			this.statusBarItem.setText('Gemini TTS: Playing...');
@@ -229,6 +237,7 @@ export default class GeminiTTSPlugin extends Plugin {
 		} catch (error) {
 			new Notice(`Error: ${error.message}`);
 			this.statusBarItem.setText('Gemini TTS: Error');
+			cleanupAudio();
 			console.error('Gemini TTS Error:', error);
 		}
 	}
@@ -265,19 +274,17 @@ class GeminiTTSSettingTab extends PluginSettingTab {
 		new Setting(containerEl)
 			.setName('API Key')
 			.setDesc('Your Google Gemini API key')
-			.addText(text => text
-				.setPlaceholder('Enter your API key')
-				.setValue(this.plugin.settings.apiKey)
-				.onChange(async (value) => {
-					this.plugin.settings.apiKey = value;
-					await this.plugin.saveSettings();
-				})
-			);
-		// Make the API key field a password field
-		const apiKeyInput = containerEl.querySelector('input[type="text"]') as HTMLInputElement;
-		if (apiKeyInput) {
-			apiKeyInput.type = 'password';
-		}
+			.addText(text => {
+				text
+					.setPlaceholder('Enter your API key')
+					.setValue(this.plugin.settings.apiKey)
+					.onChange(async (value) => {
+						this.plugin.settings.apiKey = value;
+						await this.plugin.saveSettings();
+					});
+				// Make the API key field a password field
+				text.inputEl.type = 'password';
+			});
 
 		// Model Name setting
 		new Setting(containerEl)
