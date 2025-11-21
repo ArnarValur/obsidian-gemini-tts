@@ -192,9 +192,7 @@ export default class GeminiTTSPlugin extends Plugin {
 		const data = await response.json();
 		
 		// Validate response structure
-		// Gemini usually returns candidates[0].content.parts[0].inlineData.data for audio?
-		// Wait, based on recent docs for modals, it might be inlineData.
-		
+		// Gemini returns audio in candidates[0].content.parts[0].inlineData
 		const candidates = data.candidates;
 		if (!candidates || candidates.length === 0) throw new Error("No content generated.");
 		
@@ -218,7 +216,8 @@ export default class GeminiTTSPlugin extends Plugin {
 	}
 
 	playAudio(buffer: ArrayBuffer) {
-		const blob = new Blob([buffer], { type: 'audio/wav' }); // Gemini usually returns WAV or MP3, browser detects.
+		// Use generic audio type to allow browser to detect format
+		const blob = new Blob([buffer], { type: 'audio/*' });
 		const url = window.URL.createObjectURL(blob);
 		
 		if (this.currentAudio) {
@@ -235,6 +234,8 @@ export default class GeminiTTSPlugin extends Plugin {
 		this.currentAudio.onended = () => {
 			this.isPlaying = false;
 			this.updateStatusBar("Done");
+			// Clean up blob URL to prevent memory leak
+			window.URL.revokeObjectURL(url);
 		};
 
 		this.currentAudio.onerror = (e) => {
@@ -242,6 +243,8 @@ export default class GeminiTTSPlugin extends Plugin {
 			this.isPlaying = false;
 			this.updateStatusBar("Error");
 			new Notice("Error playing audio.");
+			// Clean up blob URL even on error
+			window.URL.revokeObjectURL(url);
 		};
 
 		this.currentAudio.play();
@@ -250,6 +253,10 @@ export default class GeminiTTSPlugin extends Plugin {
 	stopAudio() {
 		if (this.currentAudio) {
 			this.currentAudio.pause();
+			// Clean up blob URL if audio was manually stopped
+			if (this.currentAudio.src) {
+				window.URL.revokeObjectURL(this.currentAudio.src);
+			}
 			this.currentAudio = null;
 		}
 		this.isPlaying = false;
