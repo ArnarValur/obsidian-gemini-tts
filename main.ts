@@ -112,7 +112,8 @@ export default class GeminiTTSPlugin extends Plugin {
 			this.playAudio(audioData);
 		} catch (error) {
 			console.error("Gemini TTS Error:", error);
-			new Notice(`TTS Error: ${error.message}`);
+			// Use generic error message to avoid exposing sensitive API details
+			new Notice('TTS Error: Failed to generate audio. Check console for details.');
 			this.updateStatusBar("Error");
 		}
 	}
@@ -128,7 +129,7 @@ export default class GeminiTTSPlugin extends Plugin {
 		}
 
 		// General Markdown cleaning for better speech flow
-		// Remove Frontmatter (YAML)
+		// Remove Frontmatter (YAML) - must be at start of file
 		clean = clean.replace(/^---[\s\S]*?---/m, '');
 		
 		// Remove headers hash (keep text)
@@ -301,6 +302,7 @@ class GeminiTTSSettingTab extends PluginSettingTab {
 						await this.plugin.saveSettings();
 					});
 				text.inputEl.type = 'password';
+				text.inputEl.autocomplete = 'off';
 			});
 
 		new Setting(containerEl)
