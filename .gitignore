@@ -132,3 +132,8 @@ data.json
 # Build output
 main.js
 main.js.map
+
+.docs/*
+.history/*
+.vscode
+obsidian-gemini-tts.code-workspace

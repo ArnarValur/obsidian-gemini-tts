@@ -20,7 +20,7 @@ interface GeminiTTSSettings {
 
 const DEFAULT_SETTINGS: GeminiTTSSettings = {
 	apiKey: '',
-	modelName: 'gemini-2.5-flash-tts',
+	modelName: 'gemini-2.0-flash-exp',
 	voiceName: 'Puck',
 	stylePrompt: 'Read clearly and naturally.',
 	skipCodeBlocks: true
@@ -82,8 +82,8 @@ export default class GeminiTTSPlugin extends Plugin {
 	cleanText(text: string): string {
 		let cleanedText = text;
 
-		// Remove frontmatter (YAML)
-		cleanedText = cleanedText.replace(/^---\n[\s\S]*?\n---\n/m, '');
+		// Remove frontmatter (YAML) - handle both start and end of file cases
+		cleanedText = cleanedText.replace(/^---\n[\s\S]*?\n---(\n|$)/m, '');
 
 		// Remove code blocks if skipCodeBlocks is enabled
 		if (this.settings.skipCodeBlocks) {
@@ -93,8 +93,8 @@ export default class GeminiTTSPlugin extends Plugin {
 			cleanedText = cleanedText.replace(/`[^`]+`/g, '');
 		}
 
-		// Remove headers (# symbols)
-		cleanedText = cleanedText.replace(/^#{1,6}\s+/gm, '');
+		// Remove headers (# symbols) but keep text
+		cleanedText = cleanedText.replace(/^#{1,6}\s+(.*)$/gm, '$1');
 
 		// Remove bold markers
 		cleanedText = cleanedText.replace(/\*\*([^*]+)\*\*/g, '$1');
@@ -108,7 +108,14 @@ export default class GeminiTTSPlugin extends Plugin {
 		cleanedText = cleanedText.replace(/\[([^\]]+)\]\([^\)]+\)/g, '$1');
 
 		// Convert wikilinks [[text]] to just text
-		cleanedText = cleanedText.replace(/\[\[([^\]]+)\]\]/g, '$1');
+		cleanedText = cleanedText.replace(/\[\[(?:[^\]|]*\|)?([^\]]+)\]\]/g, '$1');
+
+		// Remove blockquotes
+		cleanedText = cleanedText.replace(/^>\s+/gm, '');
+
+		// Remove list markers (simple)
+		cleanedText = cleanedText.replace(/^[-*+]\s+/gm, '');
+		cleanedText = cleanedText.replace(/^\d+\.\s+/gm, '');
 
 		return cleanedText.trim();
 	}
@@ -122,20 +129,46 @@ export default class GeminiTTSPlugin extends Plugin {
 
 		const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
 
-		const payload = {
-			contents: [{ parts: [{ text: text }] }],
-			config: {
-				responseModalities: ["AUDIO"],
-				speechConfig: {
-					voiceConfig: {
-						prebuiltVoiceConfig: { voiceName: voiceName }
+		// Construct the prompt
+		// For TTS models, we just send the text (and style instructions)
+		// For generic models, we need to explicitly ask it to generate speech
+		const isTTSModel = modelName.toLowerCase().includes('tts');
+		
+		let promptText = text;
+		if (stylePrompt) {
+			promptText = `${stylePrompt}\n\n${text}`;
+		}
+		
+		if (!isTTSModel) {
+			promptText = `Please read the following text aloud. ${stylePrompt}\n\nText to read:\n${text}`;
+		}
+
+		const generationConfig: any = {
+			responseModalities: ["AUDIO"]
+		};
+
+		// Only add speechConfig for TTS models
+		if (isTTSModel) {
+			generationConfig.speechConfig = {
+				voiceConfig: {
+					prebuiltVoiceConfig: { 
+						voiceName: voiceName 
 					}
 				}
-			},
-			systemInstruction: { parts: [{ text: stylePrompt }] }
+			};
+		}
+
+		const payload = {
+			contents: [{ 
+				parts: [{ text: promptText }] 
+			}],
+			generationConfig: generationConfig
 		};
 
 		try {
+			console.log('Fetching audio from Gemini API...');
+			console.log('Payload:', JSON.stringify(payload, null, 2));
+			
 			const response = await fetch(endpoint, {
 				method: 'POST',
 				headers: {
@@ -146,10 +179,12 @@ export default class GeminiTTSPlugin extends Plugin {
 
 			if (!response.ok) {
 				const errorText = await response.text();
+				console.error('API Error Response:', errorText);
 				throw new Error(`API request failed: ${response.status} ${response.statusText}\n${errorText}`);
 			}
 
 			const data = await response.json();
+			console.log('API Response:', data);
 
 			if (!data.candidates || !data.candidates[0] || !data.candidates[0].content || !data.candidates[0].content.parts || !data.candidates[0].content.parts[0]) {
 				throw new Error('Invalid response structure from API');
@@ -289,9 +324,9 @@ class GeminiTTSSettingTab extends PluginSettingTab {
 		// Model Name setting
 		new Setting(containerEl)
 			.setName('Model Name')
-			.setDesc('The Gemini model to use for TTS')
+			.setDesc('The Gemini model to use (e.g., gemini-2.0-flash-exp or gemini-2.5-flash-preview-tts)')
 			.addText(text => text
-				.setPlaceholder('gemini-2.5-flash-tts')
+				.setPlaceholder('gemini-2.0-flash-exp')
 				.setValue(this.plugin.settings.modelName)
 				.onChange(async (value) => {
 					this.plugin.settings.modelName = value;

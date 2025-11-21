@@ -1,6 +1,15 @@
 import esbuild from "esbuild";
 import process from "process";
 import builtins from "builtin-modules";
+import fs from "fs";
+import path from "path";
+
+// Read package.json to get project name
+const packageJson = JSON.parse(fs.readFileSync('package.json', 'utf-8'));
+const projectName = packageJson.name || 'dist';
+
+// Convert project name to slug (kebab-case)
+const distDir = projectName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
 
 const banner =
 `/*
@@ -10,6 +19,11 @@ if you want to view the source, please visit the github repository of this plugi
 `;
 
 const prod = (process.argv[2] === 'production');
+
+// Ensure dist directory exists
+if (!fs.existsSync(distDir)) {
+	fs.mkdirSync(distDir, { recursive: true });
+}
 
 const context = await esbuild.context({
 	banner: {
@@ -40,9 +54,27 @@ const context = await esbuild.context({
 	outfile: 'main.js',
 });
 
+// Function to copy plugin files to dist folder
+async function copyPluginFiles() {
+	const filesToCopy = ['main.js', 'manifest.json', 'styles.css'];
+	
+	for (const file of filesToCopy) {
+		if (fs.existsSync(file)) {
+			const sourceContent = fs.readFileSync(file, 'utf-8');
+			fs.writeFileSync(path.join(distDir, file), sourceContent, 'utf-8');
+			console.log(`✓ Copied ${file} to ${distDir}/`);
+		}
+	}
+}
+
 if (prod) {
 	await context.rebuild();
+	await copyPluginFiles();
+	console.log(`\n✓ Plugin files ready in '${distDir}/' folder`);
+	console.log(`Copy all files from '${distDir}/' to your-vault/.obsidian/plugins/gemini-tts/`);
 	process.exit(0);
 } else {
 	await context.watch();
+	await copyPluginFiles();
+	console.log(`\n✓ Plugin files ready in '${distDir}/' folder (watching for changes...)`);
 }
