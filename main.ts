@@ -1,4 +1,4 @@
-import { App, Editor, MarkdownView, Notice, Plugin, PluginSettingTab, Setting } from 'obsidian';
+import { App, MarkdownView, Notice, Plugin, PluginSettingTab, Setting } from 'obsidian';
 
 // --- Settings Interface ---
 interface GeminiTTSSettings {
@@ -129,7 +129,7 @@ export default class GeminiTTSPlugin extends Plugin {
 
 		// General Markdown cleaning for better speech flow
 		// Remove Frontmatter (YAML)
-		clean = clean.replace(/^---[\s\S]*?---/, '');
+		clean = clean.replace(/^---[\s\S]*?---/m, '');
 		
 		// Remove headers hash (keep text)
 		clean = clean.replace(/^#+\s+/gm, '');
