@@ -152,7 +152,16 @@ class GeminiTTSSidebarView extends ItemView {
 	async playAudio(audio: AudioFile) {
 		try {
 			const audioData = await this.plugin.app.vault.adapter.readBinary(audio.path);
-			const audioBlob = new Blob([audioData], { type: 'audio/mpeg' });
+			
+			// Detect file extension and map to correct MIME type
+			const ext = audio.name.split('.').pop()?.toLowerCase();
+			let mimeType = 'audio/mpeg'; // default
+			if (ext === 'wav') mimeType = 'audio/wav';
+			else if (ext === 'ogg') mimeType = 'audio/ogg';
+			else if (ext === 'm4a') mimeType = 'audio/mp4';
+			else if (ext === 'mp3') mimeType = 'audio/mpeg';
+			
+			const audioBlob = new Blob([audioData], { type: mimeType });
 			const audioUrl = URL.createObjectURL(audioBlob);
 			
 			// Stop current audio if playing
@@ -211,28 +220,68 @@ class GeminiTTSSidebarView extends ItemView {
 		} else {
 			const playerDiv = playerContainer.createDiv({ cls: 'gemini-tts-sidebar-player-active' });
 			
+			// Main controls - Play/Pause and Stop buttons
 			const controlsDiv = playerDiv.createDiv({ cls: 'gemini-tts-sidebar-controls' });
 			
-			const pauseBtn = controlsDiv.createEl('button', { cls: 'gemini-tts-sidebar-btn', text: '⏸️' });
+			const pauseBtn = controlsDiv.createEl('button', { cls: 'gemini-tts-sidebar-btn gemini-tts-btn-large', text: '⏸️ Pause' });
 			pauseBtn.onclick = () => this.plugin.togglePauseResume();
 			
-			const stopBtn = controlsDiv.createEl('button', { cls: 'gemini-tts-sidebar-btn', text: '⏹️' });
+			const stopBtn = controlsDiv.createEl('button', { cls: 'gemini-tts-sidebar-btn gemini-tts-btn-medium', text: '⏹️' });
 			stopBtn.onclick = () => {
 				this.plugin.stopPlayback();
 				this.updatePlayerDisplay(false);
 			};
 			
-			const timeDiv = playerDiv.createDiv({ cls: 'gemini-tts-sidebar-time', text: '0:00 / 0:00' });
+			// Progress bar
+			const progressContainer = playerDiv.createDiv({ cls: 'gemini-tts-progress-container' });
+			const progressBar = progressContainer.createEl('input', { cls: 'gemini-tts-progress-bar', attr: { type: 'range', min: '0', max: '100', value: '0' } }) as HTMLInputElement;
+			
+			// Time display
+			const timeDiv = progressContainer.createDiv({ cls: 'gemini-tts-time-display', text: '0:00 / 0:00' });
+			
+			// Volume control
+			const volumeContainer = playerDiv.createDiv({ cls: 'gemini-tts-volume-container' });
+			const volumeLabel = volumeContainer.createEl('span', { cls: 'gemini-tts-volume-label', text: '🔊' });
+			const volumeSlider = volumeContainer.createEl('input', { cls: 'gemini-tts-volume-slider', attr: { type: 'range', min: '0', max: '100', value: '100' } }) as HTMLInputElement;
 			
 			if (this.plugin.currentAudio) {
-				this.plugin.currentAudio.addEventListener('timeupdate', () => {
+				// Set initial volume
+				this.plugin.currentAudio.volume = 1.0;
+				
+				// Update progress bar
+				const updateProgress = () => {
 					const current = Math.floor(this.plugin.currentAudio?.currentTime || 0);
 					const duration = Math.floor(this.plugin.currentAudio?.duration || 0);
+					
+					if (duration > 0) {
+						progressBar.max = duration.toString();
+						progressBar.value = current.toString();
+					}
+					
 					const currentMin = Math.floor(current / 60);
 					const currentSec = (current % 60).toString().padStart(2, '0');
 					const durationMin = Math.floor(duration / 60);
 					const durationSec = (duration % 60).toString().padStart(2, '0');
 					timeDiv.textContent = `${currentMin}:${currentSec} / ${durationMin}:${durationSec}`;
+				};
+				
+				this.plugin.currentAudio.addEventListener('timeupdate', updateProgress);
+				this.plugin.currentAudio.addEventListener('loadedmetadata', updateProgress);
+				
+				// Seeking via progress bar
+				progressBar.addEventListener('input', (e) => {
+					const newTime = parseFloat((e.target as HTMLInputElement).value);
+					if (this.plugin.currentAudio) {
+						this.plugin.currentAudio.currentTime = newTime;
+					}
+				});
+				
+				// Volume control
+				volumeSlider.addEventListener('input', (e) => {
+					const volume = parseFloat((e.target as HTMLInputElement).value) / 100;
+					if (this.plugin.currentAudio) {
+						this.plugin.currentAudio.volume = volume;
+					}
 				});
 			}
 		}
@@ -452,6 +501,9 @@ export default class GeminiTTSPlugin extends Plugin {
 
 		const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
 
+		// Extract just the voice name, removing description if present (e.g., "Zephyr - Bright" -> "Zephyr")
+		const cleanVoiceName = voiceName.includes(' - ') ? voiceName.split(' - ')[0] : voiceName;
+
 		const payload = {
 			contents: [{ 
 				parts: [{ text: text }] 
@@ -461,7 +513,7 @@ export default class GeminiTTSPlugin extends Plugin {
 				speechConfig: {
 					voiceConfig: {
 						prebuiltVoiceConfig: { 
-							voiceName: voiceName 
+							voiceName: cleanVoiceName 
 						}
 					}
 				}
@@ -803,11 +855,36 @@ class GeminiTTSSettingTab extends PluginSettingTab {
 			.setName('Voice Name')
 			.setDesc('Select the voice for text-to-speech')
 			.addDropdown(dropdown => dropdown
-				.addOption('Puck', 'Puck')
-				.addOption('Charon', 'Charon')
-				.addOption('Kore', 'Kore')
-				.addOption('Fenrir', 'Fenrir')
-				.addOption('Aoede', 'Aoede')
+				.addOption('Zephyr', 'Zephyr - Bright')
+				.addOption('Puck', 'Puck - Upbeat')
+				.addOption('Charon', 'Charon - Informative')
+				.addOption('Kore', 'Kore - Firm')
+				.addOption('Fenrir', 'Fenrir - Excitable')
+				.addOption('Leda', 'Leda - Youthful')
+				.addOption('Orus', 'Orus - Firm')
+				.addOption('Aoede', 'Aoede - Breezy')
+				.addOption('Callirhoe', 'Callirhoe - Easy-going')
+				.addOption('Autonoe', 'Autonoe - Bright')
+				.addOption('Enceladus', 'Enceladus - Breathy')
+				.addOption('Iapetus', 'Iapetus - Clear')
+				.addOption('Umbriel', 'Umbriel - Easy-going')
+				.addOption('Algieba', 'Algieba - Smooth')
+				.addOption('Despina', 'Despina - Smooth')
+				.addOption('Erinome', 'Erinome - Clear')
+				.addOption('Algenib', 'Algenib - Gravelly')
+				.addOption('Rasalgethi', 'Rasalgethi - Informative')
+				.addOption('Laomedeai', 'Laomedeai - Upbeat')
+				.addOption('Achernar', 'Achernar - Soft')
+				.addOption('Alnilam', 'Alnilam - Firm')
+				.addOption('Schedar', 'Schedar - Even')
+				.addOption('Gacrux', 'Gacrux - Mature')
+				.addOption('Pulcherrima', 'Pulcherrima - Forward')
+				.addOption('Achird', 'Achird - Friendly')
+				.addOption('Zubenelgenubi', 'Zubenelgenubi - Casual')
+				.addOption('Vindemiatrix', 'Vindemiatrix - Gentle')
+				.addOption('Sadachbia', 'Sadachbia - Lively')
+				.addOption('Sadaltager', 'Sadaltager - Knowledgeable')
+				.addOption('Sulafat', 'Sulafat - Warm')
 				.setValue(this.plugin.settings.voiceName)
 				.onChange(async (value) => {
 					this.plugin.settings.voiceName = value;
