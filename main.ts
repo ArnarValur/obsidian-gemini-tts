@@ -83,7 +83,12 @@ class GeminiTTSSidebarView extends ItemView {
 	}
 
 	async loadAudioFiles() {
-		const folderPath = this.plugin.settings.audioOutputFolder;
+		// Priority: 1) Current note's folder, 2) Configured folder in settings
+		let folderPath = this.plugin.settings.audioOutputFolder;
+		const activeFile = this.plugin.app.workspace.getActiveFile();
+		if (activeFile && activeFile.parent) {
+			folderPath = activeFile.parent.path;
+		}
 		
 		try {
 			if (!await this.plugin.app.vault.adapter.exists(folderPath)) {
@@ -681,8 +686,14 @@ export default class GeminiTTSPlugin extends Plugin {
 			const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
 			const audioFileName = `${fileName}_${timestamp}.wav`;
 
-			// Ensure the output folder exists
-			const folderPath = this.settings.audioOutputFolder;
+			// Determine save location
+			// Priority: 1) Same folder as note, 2) Configured folder in settings
+			let folderPath = this.settings.audioOutputFolder;
+			if (activeFile && activeFile.parent) {
+				folderPath = activeFile.parent.path;
+			}
+
+			// Ensure the folder exists
 			if (!await this.app.vault.adapter.exists(folderPath)) {
 				await this.app.vault.createFolder(folderPath);
 			}
@@ -691,7 +702,7 @@ export default class GeminiTTSPlugin extends Plugin {
 			const arrayBuffer = await this.currentAudioBlob.arrayBuffer();
 
 			// Save the file
-			const fullPath = `${folderPath}/${audioFileName}`;
+			const fullPath = folderPath ? `${folderPath}/${audioFileName}` : audioFileName;
 			await this.app.vault.adapter.writeBinary(fullPath, arrayBuffer);
 
 			// Refresh sidebar audio list
