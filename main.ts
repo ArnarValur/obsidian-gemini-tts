@@ -258,6 +258,20 @@ export default class GeminiTTSPlugin extends Plugin {
 			return this.sidebarView;
 		});
 
+		// Open sidebar automatically on startup
+		this.app.workspace.onLayoutReady(async () => {
+			const existing = this.app.workspace.getLeavesOfType(SIDEBAR_VIEW_TYPE);
+			if (existing.length === 0) {
+				const rightLeaf = this.app.workspace.getRightLeaf(false);
+				if (rightLeaf) {
+					await rightLeaf.setViewState({
+						type: SIDEBAR_VIEW_TYPE,
+						active: true
+					});
+				}
+			}
+		});
+
 		// Add sidebar toggle command
 		this.addCommand({
 			id: 'toggle-tts-sidebar',
@@ -603,7 +617,9 @@ export default class GeminiTTSPlugin extends Plugin {
 				if (!this.currentAudio?.loop) {
 					this.statusBarItem.setText('Gemini TTS: Stopped');
 					cleanupAudio();
-					this.hideAudioPlayer();
+					if (this.sidebarView) {
+						this.sidebarView.updatePlayerDisplay(false);
+					}
 				}
 			});
 
@@ -612,7 +628,9 @@ export default class GeminiTTSPlugin extends Plugin {
 				new Notice('Error playing audio: ' + (this.currentAudio?.error?.message || 'Unknown error'));
 				this.statusBarItem.setText('Gemini TTS: Error');
 				cleanupAudio();
-				this.hideAudioPlayer();
+				if (this.sidebarView) {
+					this.sidebarView.updatePlayerDisplay(false);
+				}
 			});
 
 			this.currentAudio.addEventListener('canplay', () => {
@@ -627,8 +645,10 @@ export default class GeminiTTSPlugin extends Plugin {
 			await this.currentAudio.play();
 			new Notice('Playing audio');
 			
-			// Show audio player
-			this.showAudioPlayer();
+			// Update sidebar player display
+			if (this.sidebarView) {
+				this.sidebarView.updatePlayerDisplay(true);
+			}
 
 			// Auto-save audio to sidebar
 			await this.saveCurrentAudio();
@@ -649,7 +669,11 @@ export default class GeminiTTSPlugin extends Plugin {
 			this.isPaused = false;
 			this.statusBarItem.setText('Gemini TTS: Stopped');
 			new Notice('Playback stopped');
-			this.hideAudioPlayer();
+			
+			// Update sidebar to show no audio playing
+			if (this.sidebarView) {
+				this.sidebarView.updatePlayerDisplay(false);
+			}
 		}
 	}
 
@@ -718,128 +742,7 @@ export default class GeminiTTSPlugin extends Plugin {
 	}
 
 	showAudioPlayer() {
-		if (this.audioPlayerView || !this.currentAudio) {
-			return;
-		}
-
-		this.audioPlayerView = document.body.createDiv({ cls: 'gemini-tts-player' });
-		
-		const container = this.audioPlayerView.createDiv({ cls: 'gemini-tts-player-container' });
-		
-		// Title
-		const titleRow = container.createDiv({ cls: 'gemini-tts-player-title-row' });
-		const title = titleRow.createDiv({ cls: 'gemini-tts-player-title', text: '🎵 Gemini TTS Player' });
-		
-		// Close button in top right
-		const closeBtn = titleRow.createEl('button', { cls: 'gemini-tts-btn gemini-tts-close-btn', text: '✕' });
-		closeBtn.setAttribute('aria-label', 'Close player');
-		closeBtn.onclick = () => {
-			this.hideAudioPlayer();
-		};
-		
-		// Main controls
-		const controls = container.createDiv({ cls: 'gemini-tts-player-controls' });
-		
-		// Play/Pause button
-		const playPauseBtn = controls.createEl('button', { cls: 'gemini-tts-btn gemini-tts-btn-large', text: '⏸️ Pause' });
-		playPauseBtn.setAttribute('aria-label', 'Play or pause audio');
-		playPauseBtn.onclick = () => {
-			this.togglePauseResume();
-			playPauseBtn.textContent = this.isPaused ? '▶️ Play' : '⏸️ Pause';
-		};
-		
-		// Stop button
-		const stopBtn = controls.createEl('button', { cls: 'gemini-tts-btn gemini-tts-btn-medium', text: '⏹️ Stop' });
-		stopBtn.setAttribute('aria-label', 'Stop playback');
-		stopBtn.onclick = () => {
-			this.stopPlayback();
-		};
-		
-		// Volume control
-		const volumeContainer = controls.createDiv({ cls: 'gemini-tts-volume-container' });
-		const volumeLabel = volumeContainer.createDiv({ cls: 'gemini-tts-volume-label', text: '🔊' });
-		const volumeSlider = volumeContainer.createEl('input', { 
-			type: 'range',
-			cls: 'gemini-tts-volume-slider',
-			attr: { min: '0', max: '100', value: '100' }
-		});
-		volumeSlider.setAttribute('aria-label', 'Volume control');
-		volumeSlider.addEventListener('input', () => {
-			if (this.currentAudio) {
-				this.currentAudio.volume = parseFloat(volumeSlider.value) / 100;
-			}
-		});
-		
-		// Secondary controls row
-		const secondaryControls = container.createDiv({ cls: 'gemini-tts-secondary-controls' });
-		
-		// Repeat button
-		const repeatBtn = secondaryControls.createEl('button', { cls: 'gemini-tts-btn gemini-tts-btn-small', text: '🔁 Repeat OFF' });
-		repeatBtn.setAttribute('aria-label', 'Toggle repeat');
-		repeatBtn.onclick = () => {
-			if (this.currentAudio) {
-				this.currentAudio.loop = !this.currentAudio.loop;
-				repeatBtn.textContent = this.currentAudio.loop ? '🔁 Repeat ON' : '🔁 Repeat OFF';
-			}
-		};
-		
-		// Speed control
-		const speedContainer = secondaryControls.createDiv({ cls: 'gemini-tts-speed-container' });
-		speedContainer.createDiv({ cls: 'gemini-tts-speed-label', text: 'Speed:' });
-		const speedSelect = speedContainer.createEl('select', { cls: 'gemini-tts-speed-select' });
-		speedSelect.setAttribute('aria-label', 'Playback speed');
-		const speeds = ['0.5x', '0.75x', '1.0x', '1.25x', '1.5x', '2x'];
-		const speedValues = [0.5, 0.75, 1.0, 1.25, 1.5, 2];
-		speeds.forEach((speed, idx) => {
-			const option = speedSelect.createEl('option');
-			option.value = speedValues[idx].toString();
-			option.textContent = speed;
-			if (idx === 2) option.selected = true; // 1.0x default
-		});
-		speedSelect.addEventListener('change', () => {
-			if (this.currentAudio) {
-				this.currentAudio.playbackRate = parseFloat(speedSelect.value);
-			}
-		});
-		
-		// Save button
-		const saveBtn = secondaryControls.createEl('button', { cls: 'gemini-tts-btn gemini-tts-btn-small', text: '💾 Save' });
-		saveBtn.setAttribute('aria-label', 'Save audio file');
-		saveBtn.onclick = () => {
-			this.saveCurrentAudio();
-		};
-		
-		// Progress bar section
-		const progressContainer = container.createDiv({ cls: 'gemini-tts-progress-container' });
-		const progressBar = progressContainer.createEl('input', { 
-			type: 'range',
-			cls: 'gemini-tts-progress-bar',
-			attr: { min: '0', max: '100', value: '0' }
-		});
-		progressBar.setAttribute('aria-label', 'Seek through audio');
-		
-		const timeDisplay = container.createDiv({ cls: 'gemini-tts-time-display', text: '0:00 / 0:00' });
-		
-		// Update progress bar and time display
-		if (this.currentAudio) {
-			this.currentAudio.addEventListener('timeupdate', () => {
-				if (!this.currentAudio) return;
-				const progress = (this.currentAudio.currentTime / this.currentAudio.duration) * 100;
-				progressBar.value = progress.toString();
-				
-				const currentMin = Math.floor(this.currentAudio.currentTime / 60);
-				const currentSec = Math.floor(this.currentAudio.currentTime % 60).toString().padStart(2, '0');
-				const durationMin = Math.floor(this.currentAudio.duration / 60);
-				const durationSec = Math.floor(this.currentAudio.duration % 60).toString().padStart(2, '0');
-				timeDisplay.textContent = `${currentMin}:${currentSec} / ${durationMin}:${durationSec}`;
-			});
-			
-		progressBar.addEventListener('input', () => {
-			if (!this.currentAudio) return;
-			const time = (parseFloat(progressBar.value) / 100) * this.currentAudio.duration;
-			this.currentAudio.currentTime = time;
-		});
-		}
+		// Popup player no longer used - all playback is handled in sidebar
 	}
 
 	hideAudioPlayer() {
