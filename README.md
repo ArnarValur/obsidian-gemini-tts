@@ -1,6 +1,6 @@
 # Obsidian Gemini TTS
 
-Read your Obsidian notes aloud using Google's Gemini 2.0 Flash API with text-to-speech capabilities.
+Read your Obsidian notes aloud using Google's Gemini 2.5 Flash Preview TTS API with native text-to-speech capabilities.
 
 ## Features
 
@@ -60,7 +60,7 @@ The status bar at the bottom shows the current state:
 Your Google Gemini API key (required). Get one from [Google AI Studio](https://makersuite.google.com/app/apikey).
 
 ### Model Name
-The Gemini model to use for TTS (default: `gemini-2.0-flash-exp`). Supports both `gemini-2.0-flash-exp` (general audio generation) and `gemini-2.5-flash-preview-tts` (dedicated TTS).
+The Gemini model to use for TTS (default: `gemini-2.5-flash-preview-tts`).
 
 ### Voice Name
 Choose from 5 different voices:

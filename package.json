@@ -1,7 +1,7 @@
 {
 	"name": "obsidian-gemini-tts",
 	"version": "1.0.0",
-	"description": "Read active notes aloud using Google Gemini 2.0 Flash API.",
+	"description": "Read active notes aloud using Google Gemini 2.5 Flash Preview TTS API.",
 	"main": "main.js",
 	"scripts": {
 		"dev": "node esbuild.config.mjs",
