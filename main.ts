@@ -1,13 +1,10 @@
 import {
 	App,
-	Editor,
 	MarkdownView,
-	Modal,
 	Notice,
 	Plugin,
 	PluginSettingTab,
-	Setting,
-	ButtonComponent
+	Setting
 } from 'obsidian';
 
 interface GeminiTTSSettings {
@@ -194,14 +191,10 @@ export default class GeminiTTSPlugin extends Plugin {
 	}
 
 	async fetchGeminiAudio(text: string): Promise<{ buffer: ArrayBuffer; mimeType: string }> {
-		let { apiKey, modelName, voiceName, stylePrompt } = this.settings;
-
-		// HARDCODED API KEY FOR TESTING - Remove before production
-		const HARDCODED_API_KEY = 'AIzaSyBSsD7K1Jr17kn9vQPb2kV19cgyosJ83rQ';
+		const { apiKey, modelName, voiceName, stylePrompt } = this.settings;
 		
 		if (!apiKey) {
-			console.warn('[Gemini TTS] No API key in settings, using hardcoded key for testing');
-			apiKey = HARDCODED_API_KEY;
+			throw new Error('API key not configured. Please set your Gemini API key in plugin settings.');
 		}
 
 		const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
@@ -223,13 +216,7 @@ export default class GeminiTTSPlugin extends Plugin {
 		};
 
 		try {
-			console.log('[Gemini TTS] ========== START API REQUEST ==========');
-			console.log('[Gemini TTS] Model:', modelName);
-			console.log('[Gemini TTS] Voice:', voiceName);
-			console.log('[Gemini TTS] Text length:', text.length, 'characters');
-			console.log('[Gemini TTS] Text preview:', text.substring(0, 100) + '...');
-			console.log('[Gemini TTS] Endpoint:', endpoint.substring(0, 80) + '...');
-			console.log('[Gemini TTS] Full Payload:', JSON.stringify(payload, null, 2));
+			console.log('[Gemini TTS] Requesting audio generation for', text.length, 'characters');
 			
 			const startTime = performance.now();
 			const response = await fetch(endpoint, {
@@ -246,24 +233,20 @@ export default class GeminiTTSPlugin extends Plugin {
 
 			if (!response.ok) {
 				const errorText = await response.text();
-				console.error('[Gemini TTS] ❌ API Error Response Body:', errorText);
-				console.error('[Gemini TTS] Response headers:', {
-					contentType: response.headers.get('content-type'),
-					contentLength: response.headers.get('content-length')
-				});
-				throw new Error(`API request failed: ${response.status} ${response.statusText}\n${errorText}`);
+				console.error('[Gemini TTS] API Error:', response.status, response.statusText);
+				throw new Error(`API request failed: ${response.status} ${response.statusText}`);
 			}
 
 			const data = await response.json();
-			console.log('[Gemini TTS] ✓ API Response received:', data);
+			console.log('[Gemini TTS] ✓ Audio received from API');
 
 			if (!data.candidates || !data.candidates[0]) {
-				console.error('[Gemini TTS] ❌ No candidates in response');
+				console.error('[Gemini TTS] Invalid response structure: no candidates');
 				throw new Error('Invalid response structure from API: no candidates');
 			}
 
 			if (!data.candidates[0].content || !data.candidates[0].content.parts || !data.candidates[0].content.parts[0]) {
-				console.error('[Gemini TTS] ❌ Invalid content structure:', data.candidates[0]);
+				console.error('[Gemini TTS] Invalid content structure');
 				throw new Error('Invalid response structure from API: no content/parts');
 			}
 
@@ -271,10 +254,8 @@ export default class GeminiTTSPlugin extends Plugin {
 			const base64Audio = inlineData?.data;
 			const mimeType = inlineData?.mimeType;
 			
-			console.log('[Gemini TTS] Inline data MIME type:', mimeType);
-			
 			if (!base64Audio) {
-				console.error('[Gemini TTS] ❌ No audio data in response parts:', data.candidates[0].content.parts[0]);
+				console.error('[Gemini TTS] No audio data in response');
 				throw new Error('No audio data in response');
 			}
 
@@ -294,11 +275,10 @@ export default class GeminiTTSPlugin extends Plugin {
 				
 				// Detect format and convert if necessary
 				if (mimeType?.includes('L16') || mimeType?.includes('pcm')) {
-					console.log('[Gemini TTS] ⚠️ Detected PCM audio (L16), converting to WAV format');
+					console.log('[Gemini TTS] ⚠️ Detected PCM audio, converting to WAV format');
 					// Extract sample rate from MIME type (e.g., "audio/L16;codec=pcm;rate=24000")
 					const rateMatch = mimeType?.match(/rate=(\d+)/);
 					const sampleRate = rateMatch ? parseInt(rateMatch[1]) : 24000;
-					console.log('[Gemini TTS] Sample rate detected:', sampleRate);
 					
 					// Convert PCM to WAV
 					audioBuffer = this.pcmToWav(audioBuffer, sampleRate);
@@ -310,19 +290,17 @@ export default class GeminiTTSPlugin extends Plugin {
 					playbackMimeType = 'audio/ogg';
 				}
 				
-				console.log('[Gemini TTS] ✓ Original MIME type from API:', mimeType);
-				console.log('[Gemini TTS] ✓ Using MIME type for playback:', playbackMimeType);
+				console.log('[Gemini TTS] Using MIME type for playback:', playbackMimeType);
 				console.log('[Gemini TTS] ========== END API REQUEST ==========');
 				
 				// Return both buffer and MIME type so we can use the correct format
 				return { buffer: audioBuffer, mimeType: playbackMimeType } as any;
 			} catch (decodeError) {
-				console.error('[Gemini TTS] ❌ Failed to decode base64:', decodeError);
+				console.error('[Gemini TTS] Failed to decode base64:', decodeError);
 				throw new Error(`Failed to decode audio data: ${decodeError.message}`);
 			}
 		} catch (error) {
-			console.error('[Gemini TTS] ❌ FETCH ERROR:', error);
-			console.error('[Gemini TTS] Stack:', error.stack);
+			console.error('[Gemini TTS] Fetch error:', error.message);
 			throw new Error(`Failed to fetch audio: ${error.message}`);
 		}
 	}
@@ -331,28 +309,20 @@ export default class GeminiTTSPlugin extends Plugin {
 		// Stop any currently playing audio
 		this.stopPlayback();
 
-		console.log('[Gemini TTS] ========== START READ ACTIVE NOTE ==========');
-
 		const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
 		if (!activeView) {
-			console.error('[Gemini TTS] ❌ No active MarkdownView found');
 			new Notice('No active note found');
 			return;
 		}
-		console.log('[Gemini TTS] ✓ Active view found:', activeView.file?.path);
 
 		const noteContent = activeView.editor.getValue();
 		if (!noteContent || noteContent.trim().length === 0) {
-			console.error('[Gemini TTS] ❌ Note is empty');
 			new Notice('Note is empty');
 			return;
 		}
-		console.log('[Gemini TTS] ✓ Note content retrieved, length:', noteContent.length, 'chars');
 
 		const cleanedText = this.cleanText(noteContent);
-		console.log('[Gemini TTS] ✓ Text cleaned, new length:', cleanedText.length, 'chars');
 		if (!cleanedText || cleanedText.trim().length === 0) {
-			console.error('[Gemini TTS] ❌ No readable text found after cleaning');
 			new Notice('No readable text found in note');
 			return;
 		}
@@ -371,25 +341,17 @@ export default class GeminiTTSPlugin extends Plugin {
 			// Update status bar
 			this.statusBarItem.setText('Gemini TTS: Generating...');
 			new Notice('Generating audio...');
-			console.log('[Gemini TTS] Requesting audio generation...');
 
 			// Fetch audio from Gemini API
 			const audioResponse = await this.fetchGeminiAudio(cleanedText);
 			const { buffer: audioBuffer, mimeType } = audioResponse;
-			console.log('[Gemini TTS] ✓ Audio buffer received, MIME type:', mimeType);
 
 			// Convert ArrayBuffer to Blob and create URL using the correct MIME type
 			const audioBlob = new Blob([audioBuffer], { type: mimeType });
 			this.currentAudioBlob = audioBlob;
-			console.log('[Gemini TTS] ✓ Blob created, size:', audioBlob.size, 'bytes, MIME type:', mimeType);
-			console.log('[Gemini TTS] Blob details:', {
-				size: audioBlob.size,
-				type: audioBlob.type,
-				slice: 'First 20 bytes: ' + Array.from(new Uint8Array(audioBuffer).slice(0, 20)).map(b => b.toString(16).padStart(2, '0')).join(' ')
-			});
+			console.log('[Gemini TTS] Audio generated:', { size: audioBlob.size, type: audioBlob.type });
 			
 			audioUrl = URL.createObjectURL(audioBlob);
-			console.log('[Gemini TTS] ✓ Object URL created:', audioUrl.substring(0, 50));
 
 			// Create and play audio
 			this.currentAudio = new Audio();
@@ -397,17 +359,8 @@ export default class GeminiTTSPlugin extends Plugin {
 			this.currentAudio.src = audioUrl;
 			this.isPlaying = true;
 			this.isPaused = false;
-			console.log('[Gemini TTS] ✓ Audio element created');
-			console.log('[Gemini TTS] Audio element details:', {
-				src: audioUrl.substring(0, 50) + '...',
-				canPlayMpeg: this.currentAudio.canPlayType('audio/mpeg'),
-				currentTime: this.currentAudio.currentTime,
-				duration: this.currentAudio.duration,
-				readyState: this.currentAudio.readyState
-			});
 
 			this.currentAudio.addEventListener('ended', () => {
-				console.log('[Gemini TTS] Audio playback ended');
 				if (!this.currentAudio?.loop) {
 					this.statusBarItem.setText('Gemini TTS: Stopped');
 					cleanupAudio();
@@ -416,39 +369,23 @@ export default class GeminiTTSPlugin extends Plugin {
 			});
 
 			this.currentAudio.addEventListener('error', (e) => {
-				const errorEvent = e as ErrorEvent;
-				console.error('[Gemini TTS] ❌ Audio error event:', {
-					type: errorEvent.type,
-					message: errorEvent.message,
-					error: errorEvent.error,
-					audioError: this.currentAudio?.error
-				});
-				if (this.currentAudio?.error) {
-					console.error('[Gemini TTS] Audio element error code:', this.currentAudio.error.code);
-					console.error('[Gemini TTS] Audio element error message:', this.currentAudio.error.message);
-				}
-				new Notice('Error playing audio: ' + (this.currentAudio?.error?.message || errorEvent?.message || 'Unknown error'));
+				console.error('[Gemini TTS] Audio error:', this.currentAudio?.error?.message);
+				new Notice('Error playing audio: ' + (this.currentAudio?.error?.message || 'Unknown error'));
 				this.statusBarItem.setText('Gemini TTS: Error');
 				cleanupAudio();
 				this.hideAudioPlayer();
 			});
 
 			this.currentAudio.addEventListener('canplay', () => {
-				console.log('[Gemini TTS] ✓ Audio can play, duration:', this.currentAudio?.duration);
+				console.log('[Gemini TTS] Audio ready, duration:', this.currentAudio?.duration);
 			});
 
 			this.currentAudio.addEventListener('loadedmetadata', () => {
-				console.log('[Gemini TTS] ✓ Audio metadata loaded, duration:', this.currentAudio?.duration);
-			});
-
-			this.currentAudio.addEventListener('play', () => {
-				console.log('[Gemini TTS] ✓ Audio playback started');
+				console.log('[Gemini TTS] Audio metadata loaded');
 			});
 
 			this.statusBarItem.setText('Gemini TTS: Playing...');
-			console.log('[Gemini TTS] Starting playback...');
 			await this.currentAudio.play();
-			console.log('[Gemini TTS] ✓ Playback started');
 			new Notice('Playing audio');
 			
 			// Show audio player
@@ -458,15 +395,8 @@ export default class GeminiTTSPlugin extends Plugin {
 			if (this.settings.saveAudioFiles) {
 				await this.saveCurrentAudio();
 			}
-			console.log('[Gemini TTS] ========== END READ ACTIVE NOTE (SUCCESS) ==========');
 		} catch (error) {
-			console.error('[Gemini TTS] ========== END READ ACTIVE NOTE (ERROR) ==========');
-			console.error('[Gemini TTS] ❌ Error Details:', {
-				message: error.message,
-				name: error.name,
-				stack: error.stack,
-				error: error
-			});
+			console.error('[Gemini TTS] Error:', error.message);
 			new Notice(`Error: ${error.message}`);
 			this.statusBarItem.setText('Gemini TTS: Error');
 			cleanupAudio();
@@ -541,11 +471,9 @@ export default class GeminiTTSPlugin extends Plugin {
 
 	showAudioPlayer() {
 		if (this.audioPlayerView || !this.currentAudio) {
-			console.log('[Gemini TTS] Audio player already shown or no audio');
 			return;
 		}
 
-		console.log('[Gemini TTS] Creating audio player UI');
 		this.audioPlayerView = document.body.createDiv({ cls: 'gemini-tts-player' });
 		
 		const container = this.audioPlayerView.createDiv({ cls: 'gemini-tts-player-container' });
@@ -558,7 +486,6 @@ export default class GeminiTTSPlugin extends Plugin {
 		const closeBtn = titleRow.createEl('button', { cls: 'gemini-tts-btn gemini-tts-close-btn', text: '✕' });
 		closeBtn.setAttribute('aria-label', 'Close player');
 		closeBtn.onclick = () => {
-			console.log('[Gemini TTS] Closing audio player');
 			this.hideAudioPlayer();
 		};
 		
@@ -577,7 +504,6 @@ export default class GeminiTTSPlugin extends Plugin {
 		const stopBtn = controls.createEl('button', { cls: 'gemini-tts-btn gemini-tts-btn-medium', text: '⏹️ Stop' });
 		stopBtn.setAttribute('aria-label', 'Stop playback');
 		stopBtn.onclick = () => {
-			console.log('[Gemini TTS] Stop button clicked');
 			this.stopPlayback();
 		};
 		
@@ -606,7 +532,6 @@ export default class GeminiTTSPlugin extends Plugin {
 			if (this.currentAudio) {
 				this.currentAudio.loop = !this.currentAudio.loop;
 				repeatBtn.textContent = this.currentAudio.loop ? '🔁 Repeat ON' : '🔁 Repeat OFF';
-				console.log('[Gemini TTS] Repeat toggled:', this.currentAudio.loop);
 			}
 		};
 		
@@ -626,7 +551,6 @@ export default class GeminiTTSPlugin extends Plugin {
 		speedSelect.addEventListener('change', () => {
 			if (this.currentAudio) {
 				this.currentAudio.playbackRate = parseFloat(speedSelect.value);
-				console.log('[Gemini TTS] Playback speed changed to:', this.currentAudio.playbackRate);
 			}
 		});
 		
@@ -634,7 +558,6 @@ export default class GeminiTTSPlugin extends Plugin {
 		const saveBtn = secondaryControls.createEl('button', { cls: 'gemini-tts-btn gemini-tts-btn-small', text: '💾 Save' });
 		saveBtn.setAttribute('aria-label', 'Save audio file');
 		saveBtn.onclick = () => {
-			console.log('[Gemini TTS] Save button clicked');
 			this.saveCurrentAudio();
 		};
 		
@@ -663,15 +586,12 @@ export default class GeminiTTSPlugin extends Plugin {
 				timeDisplay.textContent = `${currentMin}:${currentSec} / ${durationMin}:${durationSec}`;
 			});
 			
-			progressBar.addEventListener('input', () => {
-				if (!this.currentAudio) return;
-				const time = (parseFloat(progressBar.value) / 100) * this.currentAudio.duration;
-				this.currentAudio.currentTime = time;
-				console.log('[Gemini TTS] Seek to:', time);
-			});
+		progressBar.addEventListener('input', () => {
+			if (!this.currentAudio) return;
+			const time = (parseFloat(progressBar.value) / 100) * this.currentAudio.duration;
+			this.currentAudio.currentTime = time;
+		});
 		}
-		
-		console.log('[Gemini TTS] Audio player UI created successfully');
 	}
 
 	hideAudioPlayer() {
