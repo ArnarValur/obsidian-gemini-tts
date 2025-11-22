@@ -318,3 +318,152 @@
         width: 100%;
     }
 }
+
+/* Sidebar styles */
+.gemini-tts-sidebar-content {
+    padding: 12px;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+}
+
+.gemini-tts-sidebar-title {
+    margin: 0 0 12px 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-normal);
+}
+
+.gemini-tts-sidebar-player {
+    background: var(--background-secondary);
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 16px;
+    min-height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.gemini-tts-sidebar-empty {
+    color: var(--text-muted);
+    font-size: 13px;
+    text-align: center;
+    width: 100%;
+}
+
+.gemini-tts-sidebar-player-active {
+    width: 100%;
+}
+
+.gemini-tts-sidebar-controls {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.gemini-tts-sidebar-btn {
+    flex: 1;
+    padding: 6px 8px;
+    border-radius: 4px;
+    border: 1px solid var(--background-modifier-border);
+    background: var(--interactive-normal);
+    color: var(--text-normal);
+    cursor: pointer;
+    font-size: 12px;
+    transition: all 0.15s;
+}
+
+.gemini-tts-sidebar-btn:hover {
+    background: var(--interactive-hover);
+}
+
+.gemini-tts-sidebar-time {
+    font-size: 11px;
+    color: var(--text-muted);
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+}
+
+.gemini-tts-sidebar-history {
+    flex: 1;
+    overflow-y: auto;
+    border-top: 1px solid var(--background-modifier-border);
+    padding-top: 12px;
+}
+
+.gemini-tts-sidebar-history-title {
+    margin: 0 0 8px 0;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-normal);
+}
+
+.gemini-tts-audio-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.gemini-tts-audio-list-empty {
+    color: var(--text-muted);
+    font-size: 12px;
+    text-align: center;
+    padding: 20px 0;
+}
+
+.gemini-tts-audio-item {
+    background: var(--background-secondary);
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 6px;
+    padding: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.15s;
+}
+
+.gemini-tts-audio-item:hover {
+    background: var(--background-modifier-hover);
+    border-color: var(--interactive-accent);
+}
+
+.gemini-tts-audio-name {
+    flex: 1;
+    font-size: 12px;
+    color: var(--text-normal);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-weight: 500;
+}
+
+.gemini-tts-audio-date {
+    font-size: 10px;
+    color: var(--text-muted);
+    white-space: nowrap;
+}
+
+.gemini-tts-audio-play-btn,
+.gemini-tts-audio-delete-btn {
+    padding: 4px 6px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    font-size: 12px;
+    transition: transform 0.15s;
+    border-radius: 4px;
+}
+
+.gemini-tts-audio-play-btn:hover,
+.gemini-tts-audio-delete-btn:hover {
+    background: var(--interactive-normal);
+    transform: scale(1.1);
+}
+
+.gemini-tts-audio-play-btn:active,
+.gemini-tts-audio-delete-btn:active {
+    transform: scale(0.95);
+}

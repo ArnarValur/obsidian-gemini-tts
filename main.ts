@@ -4,7 +4,9 @@ import {
 	Notice,
 	Plugin,
 	PluginSettingTab,
-	Setting
+	Setting,
+	ItemView,
+	WorkspaceLeaf
 } from 'obsidian';
 
 interface GeminiTTSSettings {
@@ -27,6 +29,211 @@ const DEFAULT_SETTINGS: GeminiTTSSettings = {
 	audioOutputFolder: 'TTS Audio'
 }
 
+interface AudioFile {
+	name: string;
+	path: string;
+	createdTime: number;
+}
+
+const SIDEBAR_VIEW_TYPE = 'gemini-tts-sidebar';
+
+class GeminiTTSSidebarView extends ItemView {
+	plugin: GeminiTTSPlugin;
+	audioList: AudioFile[] = [];
+
+	constructor(leaf: WorkspaceLeaf, plugin: GeminiTTSPlugin) {
+		super(leaf);
+		this.plugin = plugin;
+	}
+
+	getViewType() {
+		return SIDEBAR_VIEW_TYPE;
+	}
+
+	getDisplayText() {
+		return 'Gemini TTS';
+	}
+
+	getIcon() {
+		return 'mic';
+	}
+
+	async onOpen() {
+		const container = this.containerEl.children[1];
+		container.empty();
+		
+		const contentDiv = container.createDiv({ cls: 'gemini-tts-sidebar-content' });
+		
+		// Title
+		contentDiv.createEl('h3', { text: '🎙️ TTS Player', cls: 'gemini-tts-sidebar-title' });
+		
+		// Player container (will be populated when audio is generated)
+		const playerContainer = contentDiv.createDiv({ cls: 'gemini-tts-sidebar-player', attr: { id: 'sidebar-player-container' } });
+		playerContainer.createDiv({ cls: 'gemini-tts-sidebar-empty', text: 'No audio playing' });
+		
+		// Audio history section
+		const historyDiv = contentDiv.createDiv({ cls: 'gemini-tts-sidebar-history' });
+		historyDiv.createEl('h4', { text: 'Recent Audio', cls: 'gemini-tts-sidebar-history-title' });
+		
+		const audioListContainer = historyDiv.createDiv({ cls: 'gemini-tts-audio-list', attr: { id: 'audio-list' } });
+		
+		// Load existing audio files
+		await this.loadAudioFiles();
+		this.renderAudioList(audioListContainer);
+	}
+
+	async loadAudioFiles() {
+		const folderPath = this.plugin.settings.audioOutputFolder;
+		
+		try {
+			if (!await this.plugin.app.vault.adapter.exists(folderPath)) {
+				this.audioList = [];
+				return;
+			}
+
+			const files = await this.plugin.app.vault.adapter.list(folderPath);
+			
+			this.audioList = [];
+			for (const fileName of files.files) {
+				// Only include audio files
+				if (fileName.match(/\.(wav|mp3|ogg|m4a)$/i)) {
+					const filePath = `${folderPath}/${fileName}`;
+					const stat = await this.plugin.app.vault.adapter.stat(filePath);
+					this.audioList.push({
+						name: fileName,
+						path: filePath,
+						createdTime: stat?.mtime || 0
+					});
+				}
+			}
+			
+			// Sort by creation time (newest first)
+			this.audioList.sort((a, b) => b.createdTime - a.createdTime);
+		} catch (error) {
+			console.error('[Gemini TTS] Error loading audio files:', error);
+		}
+	}
+
+	renderAudioList(container: HTMLElement) {
+		container.empty();
+		
+		if (this.audioList.length === 0) {
+			container.createDiv({ cls: 'gemini-tts-audio-list-empty', text: 'No audio files yet' });
+			return;
+		}
+
+		this.audioList.forEach((audio) => {
+			const itemDiv = container.createDiv({ cls: 'gemini-tts-audio-item' });
+			
+			// File name and date
+			const fileName = audio.name.split('/').pop() || 'unknown';
+			const date = new Date(audio.createdTime).toLocaleDateString();
+			
+			itemDiv.createEl('div', { cls: 'gemini-tts-audio-name', text: fileName });
+			itemDiv.createEl('div', { cls: 'gemini-tts-audio-date', text: date });
+			
+			// Play button
+			const playBtn = itemDiv.createEl('button', { cls: 'gemini-tts-audio-play-btn', text: '▶️' });
+			playBtn.setAttribute('aria-label', `Play ${fileName}`);
+			playBtn.onclick = () => this.playAudio(audio);
+			
+			// Delete button
+			const deleteBtn = itemDiv.createEl('button', { cls: 'gemini-tts-audio-delete-btn', text: '🗑️' });
+			deleteBtn.setAttribute('aria-label', `Delete ${fileName}`);
+			deleteBtn.onclick = () => this.deleteAudio(audio);
+		});
+	}
+
+	async playAudio(audio: AudioFile) {
+		try {
+			const audioData = await this.plugin.app.vault.adapter.readBinary(audio.path);
+			const audioBlob = new Blob([audioData], { type: 'audio/mpeg' });
+			const audioUrl = URL.createObjectURL(audioBlob);
+			
+			// Stop current audio if playing
+			if (this.plugin.currentAudio) {
+				this.plugin.currentAudio.pause();
+				URL.revokeObjectURL(this.plugin.currentAudio.src);
+			}
+			
+			// Create and play new audio
+			this.plugin.currentAudio = new Audio();
+			this.plugin.currentAudio.src = audioUrl;
+			this.plugin.currentAudio.play();
+			this.plugin.isPlaying = true;
+			this.plugin.isPaused = false;
+			
+			new Notice(`Playing: ${audio.name}`);
+		} catch (error) {
+			new Notice(`Error playing audio: ${error.message}`);
+			console.error('[Gemini TTS] Error playing audio:', error);
+		}
+	}
+
+	async deleteAudio(audio: AudioFile) {
+		if (confirm(`Delete ${audio.name}?`)) {
+			try {
+				await this.plugin.app.vault.adapter.remove(audio.path);
+				this.audioList = this.audioList.filter(a => a.path !== audio.path);
+				const container = this.containerEl.querySelector('#audio-list') as HTMLElement;
+				if (container) {
+					this.renderAudioList(container);
+				}
+				new Notice(`Deleted: ${audio.name}`);
+			} catch (error) {
+				new Notice(`Error deleting audio: ${error.message}`);
+				console.error('[Gemini TTS] Error deleting audio:', error);
+			}
+		}
+	}
+
+	async refreshAudioList() {
+		await this.loadAudioFiles();
+		const container = this.containerEl.querySelector('#audio-list') as HTMLElement;
+		if (container) {
+			this.renderAudioList(container);
+		}
+	}
+
+	updatePlayerDisplay(isPlaying: boolean = false) {
+		const playerContainer = this.containerEl.querySelector('#sidebar-player-container') as HTMLElement;
+		if (!playerContainer) return;
+
+		playerContainer.empty();
+		
+		if (!isPlaying || !this.plugin.currentAudio) {
+			playerContainer.createDiv({ cls: 'gemini-tts-sidebar-empty', text: 'No audio playing' });
+		} else {
+			const playerDiv = playerContainer.createDiv({ cls: 'gemini-tts-sidebar-player-active' });
+			
+			const controlsDiv = playerDiv.createDiv({ cls: 'gemini-tts-sidebar-controls' });
+			
+			const pauseBtn = controlsDiv.createEl('button', { cls: 'gemini-tts-sidebar-btn', text: '⏸️' });
+			pauseBtn.onclick = () => this.plugin.togglePauseResume();
+			
+			const stopBtn = controlsDiv.createEl('button', { cls: 'gemini-tts-sidebar-btn', text: '⏹️' });
+			stopBtn.onclick = () => {
+				this.plugin.stopPlayback();
+				this.updatePlayerDisplay(false);
+			};
+			
+			const timeDiv = playerDiv.createDiv({ cls: 'gemini-tts-sidebar-time', text: '0:00 / 0:00' });
+			
+			if (this.plugin.currentAudio) {
+				this.plugin.currentAudio.addEventListener('timeupdate', () => {
+					const current = Math.floor(this.plugin.currentAudio?.currentTime || 0);
+					const duration = Math.floor(this.plugin.currentAudio?.duration || 0);
+					const currentMin = Math.floor(current / 60);
+					const currentSec = (current % 60).toString().padStart(2, '0');
+					const durationMin = Math.floor(duration / 60);
+					const durationSec = (duration % 60).toString().padStart(2, '0');
+					timeDiv.textContent = `${currentMin}:${currentSec} / ${durationMin}:${durationSec}`;
+				});
+			}
+		}
+	}
+}
+
 export default class GeminiTTSPlugin extends Plugin {
 	settings: GeminiTTSSettings;
 	statusBarItem: HTMLElement;
@@ -35,9 +242,36 @@ export default class GeminiTTSPlugin extends Plugin {
 	isPlaying: boolean = false;
 	isPaused: boolean = false;
 	audioPlayerView: HTMLElement | null = null;
+	sidebarView: GeminiTTSSidebarView | null = null;
 
 	async onload() {
 		await this.loadSettings();
+
+		// Register sidebar view
+		this.registerView(SIDEBAR_VIEW_TYPE, (leaf) => {
+			this.sidebarView = new GeminiTTSSidebarView(leaf, this);
+			return this.sidebarView;
+		});
+
+		// Add sidebar toggle command
+		this.addCommand({
+			id: 'toggle-tts-sidebar',
+			name: 'Toggle TTS sidebar',
+			callback: async () => {
+				const existing = this.app.workspace.getLeavesOfType(SIDEBAR_VIEW_TYPE);
+				if (existing.length > 0) {
+					this.app.workspace.detachLeavesOfType(SIDEBAR_VIEW_TYPE);
+				} else {
+					const rightLeaf = this.app.workspace.getRightLeaf(false);
+					if (rightLeaf) {
+						await rightLeaf.setViewState({
+							type: SIDEBAR_VIEW_TYPE,
+							active: true
+						});
+					}
+				}
+			}
+		});
 
 		// Add status bar item
 		this.statusBarItem = this.addStatusBarItem();
@@ -391,10 +625,8 @@ export default class GeminiTTSPlugin extends Plugin {
 			// Show audio player
 			this.showAudioPlayer();
 
-			// Auto-save if enabled
-			if (this.settings.saveAudioFiles) {
-				await this.saveCurrentAudio();
-			}
+			// Auto-save audio to sidebar
+			await this.saveCurrentAudio();
 		} catch (error) {
 			console.error('[Gemini TTS] Error:', error.message);
 			new Notice(`Error: ${error.message}`);
@@ -447,7 +679,7 @@ export default class GeminiTTSPlugin extends Plugin {
 			const activeFile = this.app.workspace.getActiveFile();
 			const fileName = activeFile ? activeFile.basename : 'audio';
 			const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
-			const audioFileName = `${fileName}_${timestamp}.mp3`;
+			const audioFileName = `${fileName}_${timestamp}.wav`;
 
 			// Ensure the output folder exists
 			const folderPath = this.settings.audioOutputFolder;
@@ -462,7 +694,12 @@ export default class GeminiTTSPlugin extends Plugin {
 			const fullPath = `${folderPath}/${audioFileName}`;
 			await this.app.vault.adapter.writeBinary(fullPath, arrayBuffer);
 
-			new Notice(`Audio saved to ${fullPath}`);
+			// Refresh sidebar audio list
+			if (this.sidebarView) {
+				await this.sidebarView.refreshAudioList();
+			}
+
+			new Notice(`Audio saved: ${audioFileName}`);
 		} catch (error) {
 			new Notice(`Failed to save audio: ${error.message}`);
 			console.error('Save audio error:', error);
