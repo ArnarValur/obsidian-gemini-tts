@@ -102,13 +102,19 @@ class GeminiTTSSidebarView extends ItemView {
 			for (const fileName of files.files) {
 				// Only include audio files
 				if (fileName.match(/\.(wav|mp3|ogg|m4a)$/i)) {
-					const filePath = `${folderPath}/${fileName}`;
-					const stat = await this.plugin.app.vault.adapter.stat(filePath);
-					this.audioList.push({
-						name: fileName,
-						path: filePath,
-						createdTime: stat?.mtime || 0
-					});
+					// Handle case where fileName might include or exclude folder path
+					const fullPath = fileName.startsWith(folderPath) ? fileName : `${folderPath}/${fileName}`;
+					
+					try {
+						const stat = await this.plugin.app.vault.adapter.stat(fullPath);
+						this.audioList.push({
+							name: fileName.split('/').pop() || fileName,
+							path: fullPath,
+							createdTime: stat?.mtime || 0
+						});
+					} catch (statError) {
+						console.error('[Gemini TTS] Could not stat file:', fullPath, statError);
+					}
 				}
 			}
 			
@@ -187,13 +193,28 @@ class GeminiTTSSidebarView extends ItemView {
 	async deleteAudio(audio: AudioFile) {
 		if (confirm(`Delete ${audio.name}?`)) {
 			try {
-				await this.plugin.app.vault.adapter.remove(audio.path);
-				this.audioList = this.audioList.filter(a => a.path !== audio.path);
-				const container = this.containerEl.querySelector('#audio-list') as HTMLElement;
-				if (container) {
-					this.renderAudioList(container);
+				// Use Obsidian's vault API to delete files properly
+				// First try vault.delete if available, otherwise use adapter
+				const abstractFile = this.plugin.app.vault.getAbstractFileByPath(audio.path);
+				if (abstractFile) {
+					await this.plugin.app.vault.delete(abstractFile);
+					this.audioList = this.audioList.filter(a => a.path !== audio.path);
+					const container = this.containerEl.querySelector('#audio-list') as HTMLElement;
+					if (container) {
+						this.renderAudioList(container);
+					}
+					new Notice(`Deleted: ${audio.name}`);
+				} else {
+					// Fallback to adapter if file not found in vault
+					console.warn('[Gemini TTS] File not found in vault, trying adapter delete:', audio.path);
+					await this.plugin.app.vault.adapter.remove(audio.path);
+					this.audioList = this.audioList.filter(a => a.path !== audio.path);
+					const container = this.containerEl.querySelector('#audio-list') as HTMLElement;
+					if (container) {
+						this.renderAudioList(container);
+					}
+					new Notice(`Deleted: ${audio.name}`);
 				}
-				new Notice(`Deleted: ${audio.name}`);
 			} catch (error) {
 				new Notice(`Error deleting audio: ${error.message}`);
 				console.error('[Gemini TTS] Error deleting audio:', error);
