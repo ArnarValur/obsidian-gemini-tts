@@ -29,7 +29,8 @@ Read your Obsidian notes aloud using Google's Gemini 2.5 Flash Preview TTS API w
 
 ## Setup
 
-1. Get a Google Gemini API key from [Google AI Studio](https://makersuite.google.com/app/apikey)
+1. Get a Google Gemini API key from [Google AI Studio](https://makersuite.google.com/app/apikey).
+   - **Note:** Ensure your API key has access to the **Generative Language API**.
 2. Open Obsidian Settings → Gemini TTS
 3. Enter your API key
 4. Customize other settings as desired
@@ -86,9 +87,9 @@ When enabled, code blocks (both inline and fenced) are removed from the text bef
 
 ## Privacy & Data
 
-- Your notes are sent to Google's Gemini API for processing
-- Only the text content is sent (after markdown cleaning)
-- No data is stored by the plugin
+- **API Key Storage**: Your API key is stored locally in your vault's `.obsidian/plugins/gemini-tts/data.json` file. It is **never** sent to any third-party server other than Google's Gemini API for the purpose of generating audio.
+- **Data Transmission**: Only the text content of your notes is sent to Google's Gemini API. No other vault data is accessed or transmitted.
+- **Logging**: The plugin is designed to avoid logging sensitive information (like your API key) to the developer console.
 - See [Google's Privacy Policy](https://policies.google.com/privacy) for API data handling
 
 ## Troubleshooting

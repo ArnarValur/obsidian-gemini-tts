@@ -2,7 +2,7 @@
 	"id": "gemini-tts",
 	"name": "Gemini TTS",
 	"version": "1.0.0",
-	"minAppVersion": "0.15.0",
+	"minAppVersion": "1.0.0",
 	"description": "Read active notes aloud using Google Gemini 2.5 Flash Preview TTS API.",
 	"author": "ArnarValur",
 	"authorUrl": "https://github.com/ArnarValur",

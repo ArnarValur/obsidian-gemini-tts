@@ -6,7 +6,8 @@ import {
 	PluginSettingTab,
 	Setting,
 	ItemView,
-	WorkspaceLeaf
+	WorkspaceLeaf,
+	Modal
 } from 'obsidian';
 
 interface GeminiTTSSettings {
@@ -36,6 +37,41 @@ interface AudioFile {
 }
 
 const SIDEBAR_VIEW_TYPE = 'gemini-tts-sidebar';
+
+class ConfirmModal extends Modal {
+	onConfirm: () => void;
+	message: string;
+
+	constructor(app: App, message: string, onConfirm: () => void) {
+		super(app);
+		this.message = message;
+		this.onConfirm = onConfirm;
+	}
+
+	onOpen() {
+		const { contentEl } = this;
+		contentEl.createEl('h3', { text: 'Confirm Action' });
+		contentEl.createEl('p', { text: this.message });
+
+		const buttonContainer = contentEl.createDiv({ cls: 'modal-button-container' });
+		
+		const cancelButton = buttonContainer.createEl('button', { text: 'Cancel' });
+		cancelButton.addEventListener('click', () => {
+			this.close();
+		});
+
+		const confirmButton = buttonContainer.createEl('button', { cls: 'mod-cta', text: 'Delete' });
+		confirmButton.addEventListener('click', () => {
+			this.onConfirm();
+			this.close();
+		});
+	}
+
+	onClose() {
+		const { contentEl } = this;
+		contentEl.empty();
+	}
+}
 
 class GeminiTTSSidebarView extends ItemView {
 	plugin: GeminiTTSPlugin;
@@ -191,7 +227,7 @@ class GeminiTTSSidebarView extends ItemView {
 	}
 
 	async deleteAudio(audio: AudioFile) {
-		if (confirm(`Delete ${audio.name}?`)) {
+		new ConfirmModal(this.plugin.app, `Delete ${audio.name}?`, async () => {
 			try {
 				// Use Obsidian's vault API to delete files properly
 				// First try vault.delete if available, otherwise use adapter
@@ -219,7 +255,7 @@ class GeminiTTSSidebarView extends ItemView {
 				new Notice(`Error deleting audio: ${error.message}`);
 				console.error('[Gemini TTS] Error deleting audio:', error);
 			}
-		}
+		}).open();
 	}
 
 	async refreshAudioList() {
@@ -554,17 +590,24 @@ export default class GeminiTTSPlugin extends Plugin {
 			});
 
 			const fetchTime = performance.now() - startTime;
-			console.log('[Gemini TTS] API Response Status:', response.status, response.statusText);
-			console.log('[Gemini TTS] Fetch time:', fetchTime.toFixed(2), 'ms');
+			// console.log('[Gemini TTS] API Response Status:', response.status, response.statusText);
+			// console.log('[Gemini TTS] Fetch time:', fetchTime.toFixed(2), 'ms');
 
 			if (!response.ok) {
 				const errorText = await response.text();
 				console.error('[Gemini TTS] API Error:', response.status, response.statusText);
+				
+				if (response.status === 401) {
+					throw new Error('Invalid API Key. Please check your settings.');
+				} else if (response.status === 429) {
+					throw new Error('Rate Limit Exceeded. Please try again later.');
+				}
+
 				throw new Error(`API request failed: ${response.status} ${response.statusText}`);
 			}
 
 			const data = await response.json();
-			console.log('[Gemini TTS] ✓ Audio received from API');
+			// console.log('[Gemini TTS] ✓ Audio received from API');
 
 			if (!data.candidates || !data.candidates[0]) {
 				console.error('[Gemini TTS] Invalid response structure: no candidates');
@@ -585,7 +628,7 @@ export default class GeminiTTSPlugin extends Plugin {
 				throw new Error('No audio data in response');
 			}
 
-			console.log('[Gemini TTS] ✓ Audio data received, size:', base64Audio.length, 'characters');
+			// console.log('[Gemini TTS] ✓ Audio data received, size:', base64Audio.length, 'characters');
 
 			// Convert base64 to ArrayBuffer
 			try {
@@ -594,14 +637,14 @@ export default class GeminiTTSPlugin extends Plugin {
 				for (let i = 0; i < binaryString.length; i++) {
 					bytes[i] = binaryString.charCodeAt(i);
 				}
-				console.log('[Gemini TTS] ✓ Converted to ArrayBuffer, size:', bytes.buffer.byteLength, 'bytes');
+				// console.log('[Gemini TTS] ✓ Converted to ArrayBuffer, size:', bytes.buffer.byteLength, 'bytes');
 				
 				let audioBuffer = bytes.buffer;
 				let playbackMimeType = 'audio/mpeg'; // Default
 				
 				// Detect format and convert if necessary
 				if (mimeType?.includes('L16') || mimeType?.includes('pcm')) {
-					console.log('[Gemini TTS] ⚠️ Detected PCM audio, converting to WAV format');
+					// console.log('[Gemini TTS] ⚠️ Detected PCM audio, converting to WAV format');
 					// Extract sample rate from MIME type (e.g., "audio/L16;codec=pcm;rate=24000")
 					const rateMatch = mimeType?.match(/rate=(\d+)/);
 					const sampleRate = rateMatch ? parseInt(rateMatch[1]) : 24000;
@@ -609,15 +652,15 @@ export default class GeminiTTSPlugin extends Plugin {
 					// Convert PCM to WAV
 					audioBuffer = this.pcmToWav(audioBuffer, sampleRate);
 					playbackMimeType = 'audio/wav';
-					console.log('[Gemini TTS] ✓ Converted to WAV, new size:', audioBuffer.byteLength, 'bytes');
+					// console.log('[Gemini TTS] ✓ Converted to WAV, new size:', audioBuffer.byteLength, 'bytes');
 				} else if (mimeType?.includes('mpeg')) {
 					playbackMimeType = 'audio/mpeg';
 				} else if (mimeType?.includes('ogg')) {
 					playbackMimeType = 'audio/ogg';
 				}
 				
-				console.log('[Gemini TTS] Using MIME type for playback:', playbackMimeType);
-				console.log('[Gemini TTS] ========== END API REQUEST ==========');
+				// console.log('[Gemini TTS] Using MIME type for playback:', playbackMimeType);
+				// console.log('[Gemini TTS] ========== END API REQUEST ==========');
 				
 				// Return both buffer and MIME type so we can use the correct format
 				return { buffer: audioBuffer, mimeType: playbackMimeType } as any;
