@@ -1,50 +1,31 @@
 # Obsidian Gemini TTS
 
-Read your Obsidian notes aloud using Gemini TTS model via their 
+This Obsidian plugin was quickly generated using Gemini 3 because reading long notes and documents is wholeheartedly tiering, especially when you start to think "It's year 2025, I should be able to get anything read for me outloud without extra convulated third-party services", so I solved that easily.
 
-## Features
+![alt text](image-1.png) 
 
-- 🎙️ **Natural Voice Synthesis**: Uses Google Gemini's advanced TTS models
-- 🎭 **Multiple Voices**: Choose from 5 different voice options (Puck, Charon, Kore, Fenrir, Aoede)
+> Note! You might need a Paid Tier on the key to use the model, but I have not tested it myself with free tier key, or even if this plugin works for other TTS models, feel free to fork and experiment.
+
+## Features:
+
+- 🎙️ **Natural Voice Synthesis**: Uses Google Gemini's advanced TTS models and is clever enough to skip over code snippets.
+- 🎭 **Multiple Voices**: Choose from all the voices that their TTS models have to offer.
 - 🎨 **Customizable Style**: Adjust reading style with custom prompts
-- 📝 **Smart Text Cleaning**: Automatically removes markdown formatting, code blocks, and frontmatter
-- ⚡ **Simple Controls**: Ribbon icon and keyboard commands for easy access
 - 📱 **Cross-Platform**: Works on desktop and mobile <- TODO: Check if it actually works in Mobile.
+
 
 ## Installation
 
-### From Obsidian
-TODO: Publish on Obsidian Community ?
-~~1. Open Settings → Community Plugins~~
-~~2. Disable Safe Mode~~
-~~3. Browse and search for "Gemini TTS"~~
-~~4. Install and enable the plugin~~
-
-### Manual Installation
+### Manual Installation <- Easy
 
 1. Download the latest release from GitHub
 2. Extract the files to your vault's `.obsidian/plugins/gemini-tts/` folder
 3. Reload Obsidian
 4. Enable the plugin in Settings → Community Plugins
-
-## Setup
-
-1. Get a Google Gemini API key from [Google AI Studio](https://aistudio.google.com/app/api-keys)
-2. Open Obsidian Settings → Gemini TTS
-3. Enter your API key
-4. Customize other settings as desired
-
-## Usage
-
-### Reading Notes
-
-- **Ribbon Icon**: Click the microphone icon in the left sidebar <- a mic button... So logic, very works.
-- **Command Palette**: Search for "Read active note" (Ctrl/Cmd+P)
-
-### Stopping Playback
-
-- **Command Palette**: Search for "Stop playback"
-- Or simply start reading a new note
+5. Get a Google Gemini API key from [Google AI Studio](https://aistudio.google.com/app/api-keys)
+6. Open Obsidian Settings → Gemini TTS
+7. Enter your API key
+8. Customize other settings as desired
 
 ### Status Bar
 
@@ -65,10 +46,6 @@ The Gemini model to use for TTS (default: `gemini-2.5-flash-preview-tts`).
 ### Voice Name
 Choose from 5 different voices:
 - **Puck**: Default voice <- TODO: Change the default one, it's way to flamboyant, and that's coming from a gay guy. 💁‍♂️
-- **Charon**: Alternative voice option
-- **Kore**: Alternative voice option
-- **Fenrir**: Alternative voice option
-- **Aoede**: Alternative voice option
 
 ### Style Prompt
 Instructions for how the text should be read (default: "Read clearly and naturally."). Customize this to change the reading style, pace, or emphasis.
@@ -91,14 +68,9 @@ When enabled, code blocks (both inline and fenced) are removed from the text bef
 - No data is stored by the plugin
 - See [Google's Privacy Policy](https://policies.google.com/privacy) for API data handling
 
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
 ## License
 
 MIT License - see LICENSE file for details.
 
-## Support
-
-If you encounter any issues or have suggestions, please [open an issue](https://github.com/ArnarValur/obsidian-gemini-tts/issues) on GitHub.
+## Voices: 
+![alt text](image.png)
