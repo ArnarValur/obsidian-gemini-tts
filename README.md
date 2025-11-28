@@ -2,7 +2,7 @@
 
 This Obsidian plugin was quickly generated using Gemini 3 because reading long notes and documents is wholeheartedly tiering, especially when you start to think "It's year 2025, I should be able to get anything read for me outloud without another extra convulated third-party services", so I solved that easily with Gemini.
 
-![alt text](image-1.png) 
+![alt text](img/image-1.png) 
 
 > Note! You might need a Paid Tier on the key to use the model, but I have not tested it myself with free tier key.
 Or even if this plugin works for other TTS models, feel free to fork and experiment.
@@ -73,4 +73,4 @@ When enabled, code blocks (both inline and fenced) are removed from the text bef
 MIT License - see LICENSE file for details.
 
 ## Voices: 
-![alt text](image.png)
+![alt text](img/image.png)
