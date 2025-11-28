@@ -1,6 +1,6 @@
 # Obsidian Gemini TTS
 
-Read your Obsidian notes aloud using Google's Gemini 2.5 Flash Preview TTS API with native text-to-speech capabilities.
+Read your Obsidian notes aloud using Gemini TTS model via their 
 
 ## Features
 
@@ -9,16 +9,16 @@ Read your Obsidian notes aloud using Google's Gemini 2.5 Flash Preview TTS API w
 - 🎨 **Customizable Style**: Adjust reading style with custom prompts
 - 📝 **Smart Text Cleaning**: Automatically removes markdown formatting, code blocks, and frontmatter
 - ⚡ **Simple Controls**: Ribbon icon and keyboard commands for easy access
-- 📱 **Cross-Platform**: Works on desktop and mobile
+- 📱 **Cross-Platform**: Works on desktop and mobile <- TODO: Check if it actually works in Mobile.
 
 ## Installation
 
 ### From Obsidian
-
-# 1. Open Settings → Community Plugins
-# 2. Disable Safe Mode
-# 3. Browse and search for "Gemini TTS"
-# 4. Install and enable the plugin
+TODO: Publish on Obsidian Community ?
+~~1. Open Settings → Community Plugins~~
+~~2. Disable Safe Mode~~
+~~3. Browse and search for "Gemini TTS"~~
+~~4. Install and enable the plugin~~
 
 ### Manual Installation
 
