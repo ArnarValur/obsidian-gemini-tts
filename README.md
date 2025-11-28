@@ -1,10 +1,11 @@
 # Obsidian Gemini TTS
 
-This Obsidian plugin was quickly generated using Gemini 3 because reading long notes and documents is wholeheartedly tiering, especially when you start to think "It's year 2025, I should be able to get anything read for me outloud without extra convulated third-party services", so I solved that easily.
+This Obsidian plugin was quickly generated using Gemini 3 because reading long notes and documents is wholeheartedly tiering, especially when you start to think "It's year 2025, I should be able to get anything read for me outloud without another extra convulated third-party services", so I solved that easily with Gemini.
 
 ![alt text](image-1.png) 
 
-> Note! You might need a Paid Tier on the key to use the model, but I have not tested it myself with free tier key, or even if this plugin works for other TTS models, feel free to fork and experiment.
+> Note! You might need a Paid Tier on the key to use the model, but I have not tested it myself with free tier key.
+Or even if this plugin works for other TTS models, feel free to fork and experiment.
 
 ## Features:
 
@@ -12,7 +13,6 @@ This Obsidian plugin was quickly generated using Gemini 3 because reading long n
 - 🎭 **Multiple Voices**: Choose from all the voices that their TTS models have to offer.
 - 🎨 **Customizable Style**: Adjust reading style with custom prompts
 - 📱 **Cross-Platform**: Works on desktop and mobile <- TODO: Check if it actually works in Mobile.
-
 
 ## Installation
 
