@@ -15,10 +15,10 @@ Read your Obsidian notes aloud using Google's Gemini 2.5 Flash Preview TTS API w
 
 ### From Obsidian
 
-1. Open Settings → Community Plugins
-2. Disable Safe Mode
-3. Browse and search for "Gemini TTS"
-4. Install and enable the plugin
+# 1. Open Settings → Community Plugins
+# 2. Disable Safe Mode
+# 3. Browse and search for "Gemini TTS"
+# 4. Install and enable the plugin
 
 ### Manual Installation
 
@@ -29,7 +29,7 @@ Read your Obsidian notes aloud using Google's Gemini 2.5 Flash Preview TTS API w
 
 ## Setup
 
-1. Get a Google Gemini API key from [Google AI Studio](https://makersuite.google.com/app/apikey)
+1. Get a Google Gemini API key from [Google AI Studio](https://aistudio.google.com/app/api-keys)
 2. Open Obsidian Settings → Gemini TTS
 3. Enter your API key
 4. Customize other settings as desired
@@ -38,7 +38,7 @@ Read your Obsidian notes aloud using Google's Gemini 2.5 Flash Preview TTS API w
 
 ### Reading Notes
 
-- **Ribbon Icon**: Click the microphone icon in the left sidebar
+- **Ribbon Icon**: Click the microphone icon in the left sidebar <- a mic button... So logic, very works.
 - **Command Palette**: Search for "Read active note" (Ctrl/Cmd+P)
 
 ### Stopping Playback
@@ -57,14 +57,14 @@ The status bar at the bottom shows the current state:
 ## Settings
 
 ### API Key
-Your Google Gemini API key (required). Get one from [Google AI Studio](https://makersuite.google.com/app/apikey).
+Your Google Gemini API key (required). Get one from [Google AI Studio](https://aistudio.google.com/app/api-keys).
 
 ### Model Name
 The Gemini model to use for TTS (default: `gemini-2.5-flash-preview-tts`).
 
 ### Voice Name
 Choose from 5 different voices:
-- **Puck**: Default voice
+- **Puck**: Default voice <- TODO: Change the default one, it's way to flamboyant, and that's coming from a gay guy. 💁‍♂️
 - **Charon**: Alternative voice option
 - **Kore**: Alternative voice option
 - **Fenrir**: Alternative voice option
@@ -90,22 +90,6 @@ When enabled, code blocks (both inline and fenced) are removed from the text bef
 - Only the text content is sent (after markdown cleaning)
 - No data is stored by the plugin
 - See [Google's Privacy Policy](https://policies.google.com/privacy) for API data handling
-
-## Troubleshooting
-
-### "API key is not set" error
-Make sure you've entered your Gemini API key in the plugin settings.
-
-### "No active note found" error
-Open a note in edit or reading mode before trying to read it.
-
-### "No audio data in response" error
-Check your API key is valid and has access to the Gemini TTS models.
-
-### Audio doesn't play
-- Check your device volume
-- Ensure your browser/Electron has audio permissions
-- Try a different note to rule out content issues
 
 ## Contributing
 
